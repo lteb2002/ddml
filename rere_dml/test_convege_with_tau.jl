@@ -35,7 +35,7 @@ labels = "label_".*string.(csv_data[:,end])
 # println(labels)
 # println(labels)
 
-ts=-4:-1.0:-10
+ts=-4:1.0:10
 distance_type = "huber2"
 triplets = TripletModule.build_triplets(data, labels)
 for t in ts

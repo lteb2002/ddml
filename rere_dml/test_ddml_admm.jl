@@ -10,14 +10,19 @@ using Tables
 using DataFrames
 using LinearAlgebra
 using StatsBase
-using DiagDml
+using RereDiagDmlADMM
 using TripletModule
+using Random
+
+
+#本文件用于测试DDML（对角化度量学习）的ADMM求解器
+#This file is used to test the performance of the ADMM solver for DDML(Diagonal Distance Metric Learning)
 
 path="G:\\dataset\\dml_feature_selection_data\\"
-f = "credit_score2"
+# f = "credit_score2"
+# f = "iris"
+f = "credit_score2_samples"
 
-path="G:\\bayes\\data\\"
-f = "credit_sample"
 
 fn=path*f*".csv"
 
@@ -32,22 +37,28 @@ data = StatsBase.transform(dt, data)
 labels = "label_".*string.(csv[:,end])
 # println(labels)
 
-reg = "l2"
-reg = "elastic"
-reg = "none"
 # reg = "l1"
-distance_type = "huber2"
-regWeight = 1.0
+alpha = 0.8
+regWeight = 10^5
+
 triplets = TripletModule.build_triplets(data, labels)
-@time x=DiagDml.solve_diag_dml(triplets,regWeight,0.0,distance_type)
-x = round.(x;digits=4)
+Random.seed!(3)
+shuffle!(triplets)
+println("Total triplets number:",length(triplets))
+@time x,errors=RereDiagDmlADMM.admmIterate(triplets,regWeight,alpha)
+
+x = round.(x;digits=12)
 println("Solutions:",x)
+
+println("errors:",errors)
+
 new_data = data * Diagonal(x)
-new_data = round.(new_data;digits=4)
+new_data = round.(new_data;digits=12)
 # println(new_data)
 csv = hcat(new_data,labels)
 # println(csv)
-output = path*f*"_"*reg*"_"*distance_type*".csv"
+reg = "elasticnet"
+output = path*f*"_a"*string(alpha)*"_lam_"*string(regWeight)*"_admm.csv"
 table = Tables.table(csv)
 CSV.write(output,table)
 

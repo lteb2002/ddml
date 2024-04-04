@@ -7,6 +7,7 @@ using Optim, LineSearches
 export solveDmlLp
 using Statistics
 
+# 本模块使用罚函数法测试求解DDML问题
 # 本计算中没有带有松驰变量（不等式松驰变量）
 
   # Solve the L2 regularization LP problem for Diag-DML based on Penalty Function

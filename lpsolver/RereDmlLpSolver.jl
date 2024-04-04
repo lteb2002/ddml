@@ -1,12 +1,12 @@
 
 
-#This module works as a example of solving linear programming problems for Ju4ja
+#This module works as a linear programming based solver for DDML problem
 module RereDmlLpSolver
 using JuMP,Clp
 using HiGHS
 export solveDmlLp
 
-# Just for testing purpose, Diag-DML and its ℓ_1 regularization solve linear programming problems using a Scala library called "SCPSolver.jar".
+# Just for testing purpose, Diag-DML and its ℓ_1 regularization solve DDML problems using a Scala library called "SCPSolver.jar".
 #solve linear programming
 function solveDmlLp(
   c::Array{Float32},
@@ -14,7 +14,7 @@ function solveDmlLp(
   b::Array{Float32},
   regWeight::Number = 0
 )
-
+  # @suppress
   model = Model(HiGHS.Optimizer)
   # model = JuMP.Model(with_optimizer(Clp.Optimizer))
   # model = Model(solver = ClpSolver())

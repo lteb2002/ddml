@@ -4,7 +4,8 @@ using LinearAlgebra
 using Optim, LineSearches
 export solveDmlLpWithAdmm
 
-
+#本模块主要用于测试对DML优化问题的系数矩阵进行列分裂测试，本质上并不能并行计算
+#This module is used to test splitting the colunms of the DML matrix, it cannot be used for parallel computing
     function separateVariables(c, A, b, mainVarNum::Int16,slackNum::Int16,surplusNum::Int16)
         varNum = length(c)
         p1MainVarNum = Int16(floor(mainVarNum / 2)) # the main variable number of part1

@@ -1,13 +1,12 @@
-
-
 module TripletModule
 #本模块用于度量学习中三元组的相关操作
+#This module is used to build the triplets in DML
 using LinearAlgebra, Distributed
 using NearestNeighbors
 
 export Triplet, build_triplets
 
-max_triplet_number = 5000
+max_triplet_number = 1000000
 noise_num = 5
 
 mutable struct Triplet

@@ -7,13 +7,14 @@ using Optim, LineSearches
 export solveDmlLp
 using Statistics
 
-# 本计算中没有带有DML松驰变量（非不等式松驰变量）
+# 本模块使用乘子法测试求解DDML问题
+# 本计算中没有带有解决不等式约束的剩余变量（非不等式松驰变量）
 
   # Solve the L2 regularization LP problem for Diag-DML based on Penalty Function
   function solveDmlLp(c,A,b, regType::String="l2", regWeight::Number=0, a::Number = 0.5)
-    c = Float32.(c)
-    A = Float32.(A)
-    b = Float32.(b)
+    c = Float16.(c)
+    A = Float16.(A)
+    b = Float16.(b)
     n_inst = length(b)
     m_feature = length(c)-length(b)
     # n_feature=length(c)-2*n_inst
@@ -28,6 +29,7 @@ using Statistics
     x0=ones(length(c))  #x初始值
     tho = 1.0E6 #tho 固定数值的惩罚系数
     beta_lang = ones(2*n_inst+m_feature)
+    # beta_lang = ones(2*n_inst+m_feature)
     eps = 1.0e-100
     param_c = 1.0E-10 # 1范数拟合函数参数
     residual = 0
@@ -54,9 +56,14 @@ using Statistics
     function bf(x)
       # 个数为约束不等式的个数，n个约束, m个主变量, n个松弛变量
       y = zeros(2*n_inst+m_feature)
-      y[1:n_inst] = beta_lang[1:n_inst]-tho*(A*x-b)
+      #本部分代表DML最大小间隙的约束
+      y[1:n_inst] = beta_lang[1:n_inst]-tho*(A*x-b) # 参见P408，最优化理论与方法（第2版），陈宝林
+      # 相较于上书411中的公式，本问题中多了x>0和\xi（希腊字符）>0的约束
+      #本部分代表x>0
       y[n_inst+1:n_inst+m_feature] = beta_lang[n_inst+1:n_inst+m_feature]-tho*x[1:m_feature]
+      #本部分代表DML松驰变量>0
       y[n_inst+m_feature+1,end]=beta_lang[n_inst+m_feature+1,end]-tho*x[m_feature+1,end]
+
       indices = y .> 0
       # println(length(y))
       # println(length(indices))
@@ -172,14 +179,22 @@ using Statistics
     # objs = zeros(0)
     k0 = test_lipschitz()
     gx0 = norm(grad(x0))
-    println("Current Lipschitz K:",k0,", gradient:",gx0)
-    threshold = 1.0E-6
+    println("Current Lipschitz K:",k0,", gradient norm:",gx0)
+    threshold = 1.0E-4
     residual = 100
     h0 = norm(cal_constraint_item_value(x0))
+
+    # Default nonlinear procenditioner for `OACCEL`
+    nlprecon = GradientDescent(alphaguess=LineSearches.InitialStatic(alpha=1e-4,scaled=true),
+    linesearch=LineSearches.Static())
+    nlprecon2 = LBFGS()
+    # Default size of subspace that OACCEL accelerates over is `wmax = 10`
+    oacc10 = OACCEL(nlprecon=nlprecon2, wmax=10)
+
     while residual>threshold && currentStep < maxStep
       currentStep += 1
       #ConjugateGradient  LBFGS
-      res=optimize(f, g!,x0, ConjugateGradient())
+      res=optimize(f, g!,x0, oacc10)
       x0 = Optim.minimizer(res)
       beta_lang -= tho * cal_constraint_item_value(x0)
       #println("result = ", x0 )
@@ -194,7 +209,7 @@ using Statistics
       pobj=pure_objective(x0)
       # append!( objs, pobj)
       residual = error1
-      # println("Pf Step:",currentStep,",Objective value: ",pobj,", bf1:",error1,",  residual:",residual)
+      println("Pf Step:",currentStep,",Objective value: ",pobj,", bf1:",error1,",  residual:",residual)
       #error=sum(abs.(ctr(x0)))
     end
     println("Total steps:",currentStep)
