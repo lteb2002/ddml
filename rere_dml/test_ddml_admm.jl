@@ -10,7 +10,7 @@ using Tables
 using DataFrames
 using LinearAlgebra
 using StatsBase
-using RereDiagDmlADMM
+using RereDiagDmlADMMDistributed
 using TripletModule
 using Random
 
@@ -19,9 +19,9 @@ using Random
 #This file is used to test the performance of the ADMM solver for DDML(Diagonal Distance Metric Learning)
 
 path="G:\\dataset\\dml_feature_selection_data\\"
-# f = "credit_score2"
+f = "credit_score2"
 # f = "iris"
-f = "credit_score2_samples"
+# f = "credit_score2_samples"
 
 
 fn=path*f*".csv"
@@ -45,15 +45,15 @@ triplets = TripletModule.build_triplets(data, labels)
 Random.seed!(3)
 shuffle!(triplets)
 println("Total triplets number:",length(triplets))
-@time x,errors=RereDiagDmlADMM.admmIterate(triplets,regWeight,alpha)
+@time x,errors=RereDiagDmlADMMDistributed.admmIterate(triplets,regWeight,alpha)
 
-x = round.(x;digits=12)
+# x = round.(x;digits=12)
 println("Solutions:",x)
 
 println("errors:",errors)
 
 new_data = data * Diagonal(x)
-new_data = round.(new_data;digits=12)
+# new_data = round.(new_data;digits=12)
 # println(new_data)
 csv = hcat(new_data,labels)
 # println(csv)

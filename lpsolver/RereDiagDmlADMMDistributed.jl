@@ -19,11 +19,15 @@ export admmIterate
 #本模块为Diagonal DML优化问题的主要求解器，分块方法为按样本分裂，可以用于并行计算
 # This module is the main solver of the DDML optimization, it can split the problem with many blocks of samples, and it can be used for parallel computing
 
+# Remember to set the number of execution threads using the JULIA_NUM_THREADS environment variable
+# We set JULIA_NUM_THREADS = 80. The number should be set according to the available threads of your computer
+
+
 #分裂样本为N块
 #split the triplets into N blocks
 function splitBlocks(triplets)
     #每个块的样本量
-    num_each = 5000
+    num_each = 1000
     total = length(triplets)
     n_blocks::Int = total % num_each == 0 ? floor(Int,total/num_each) : floor(Int,total/num_each)+1
     trs = Dict() 
@@ -192,7 +196,7 @@ function admmUpdate(trs,w_map,z,y_map,rho,regWeight,alpha)
     ws = []
     ys = []
     # Set the number of execution threads using the JULIA_NUM_THREADS environment variable
-    # We set JULIA_NUM_THREADS = 20
+    # We set JULIA_NUM_THREADS = 80
     println("Available threads:",Threads.nthreads())
 
     taskMap = Dict()
