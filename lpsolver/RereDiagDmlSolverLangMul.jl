@@ -8,13 +8,14 @@ export solveDmlLp
 using Statistics
 
 # 本模块使用乘子法测试求解DDML问题
+# Solver for D-DML based on Lagrange Multiplier Method (Augmented Lagrangian Function)
 # 本计算中没有带有解决不等式约束的剩余变量（非不等式松驰变量）
 
-  # Solve the L2 regularization LP problem for Diag-DML based on Penalty Function
+  # Solve the L2 regularization LP problem for Diag-DML based on augmented Lagrangian function
   function solveDmlLp(c,A,b, regType::String="l2", regWeight::Number=0, a::Number = 0.5)
-    c = Float16.(c)
-    A = Float16.(A)
-    b = Float16.(b)
+    c = Float32.(c)
+    A = Float32.(A)
+    b = Float32.(b)
     n_inst = length(b)
     m_feature = length(c)-length(b)
     # n_feature=length(c)-2*n_inst

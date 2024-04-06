@@ -11,6 +11,7 @@ using LinearAlgebra
 using Statistics
 using Optim, LineSearches
 using Random
+using Base.Threads
 # using Distributed
 
 export admmIterate
@@ -22,7 +23,7 @@ export admmIterate
 #split the triplets into N blocks
 function splitBlocks(triplets)
     #每个块的样本量
-    num_each = 2000
+    num_each = 5000
     total = length(triplets)
     n_blocks::Int = total % num_each == 0 ? floor(Int,total/num_each) : floor(Int,total/num_each)+1
     trs = Dict() 
@@ -35,7 +36,7 @@ function splitBlocks(triplets)
         trs[i]=triplets[first:last]
     end
     for (k,ts) in trs
-        println("Block number:",k,"Triplets number:",length(ts))
+        println("Block number:",k,", triplets number:",length(ts))
     end
     return trs
 end
@@ -190,15 +191,24 @@ end
 function admmUpdate(trs,w_map,z,y_map,rho,regWeight,alpha)
     ws = []
     ys = []
+    # Set the number of execution threads using the JULIA_NUM_THREADS environment variable
+    # We set JULIA_NUM_THREADS = 20
+    println("Available threads:",Threads.nthreads())
+
+    taskMap = Dict()
     # addprocs(6)
     for (k,ts) in trs
         w0 = w_map[k]
         y0 = y_map[k]
-        wt = optimizeW(w0,z,y0,rho,regWeight,ts)
-        w_map[k] = wt
-        push!(ws,wt)
+        task = Threads.@spawn optimizeW(w0,z,y0,rho,regWeight,ts)
+        taskMap[k] = task
         y_map[k] = y0
         push!(ys,y0)
+    end
+    for (k,t) in taskMap
+        wt = fetch(taskMap[k])
+        w_map[k] = wt
+        push!(ws,wt)
     end
     w_bar = Statistics.mean(ws)
     # println("w_bar values:",w_bar)

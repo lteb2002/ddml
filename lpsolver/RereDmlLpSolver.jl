@@ -15,10 +15,9 @@ function solveDmlLp(
   regWeight::Number = 0
 )
   # @suppress
-  model = Model(HiGHS.Optimizer)
-  # model = JuMP.Model(with_optimizer(Clp.Optimizer))
-  # model = Model(solver = ClpSolver())
-  # set_optimizer_attribute(model, "LogLevel", 0)
+  # model = Model(HiGHS.Optimizer)
+  model = JuMP.Model(Clp.Optimizer)
+  set_optimizer_attribute(model, "LogLevel", 0)
   # set_optimizer_attribute(model, "SolveType", 0)
   #println(length(c))
   @variable(model, x[i = 1:length(c)])
