@@ -48,10 +48,12 @@ function build_triplets(features::Array{Float32,2}, labels)
                 xts = cat(xts, xt_buck, dims = 1)
             end
         end
+        # 异类数据点的KD-TREE
         kdt_t = KDTree(xts')
         indices2, dists2 = knn(kdt_t, xs_buck', 1, true)
         ss = size(xs_buck)
-        for i = 1:ss[1]
+        # 该类别下所有数据点去找出最近同类数据和异类数据
+        for i in 1:ss[1]
             try
                 xj = xs_buck[i, :]
                 xi = xs_buck[indices1[i][2], :]

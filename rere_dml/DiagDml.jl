@@ -8,7 +8,7 @@ using TripletModule
 using RereDiagDmlSolverLangMul
 using RereDiagDmlSolverPf2
 using RereDiagDmlSolverPf
-using RereDmlLpSolverAdmm
+using RereDmlLpSolverAdmmSplittingColumns
 using LinearAlgebra
 
 export solve_diag_dml

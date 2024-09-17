@@ -15,13 +15,16 @@ using Random
 
 export admmIterate
 
-#本模块为Diagonal DML优化问题的主要求解器，分块方法为按样本分裂，可以用于并行计算
-# This module is the main solver of the DDML optimization, it can split the problem with many blocks of samples, and it can be used for parallel computing
+#本模块为Diagonal DML优化问题的主要求解器 (未实现真正并行计算)，分块方法为按样本分裂，可以用于并行计算
+# This module is the main solver of the DDML optimization without real implementation of parallelization, it can split the problem with many blocks of samples, and it can be used for parallel computing
+# This module is specially provided for the ones that have difficulties to run distributed Julia programs.
+
 
 #分裂样本为N块
 #split the triplets into N blocks
 function splitBlocks(triplets)
     #每个块的样本量
+    #The number of the samples in each block
     num_each = 2000
     total = length(triplets)
     n_blocks::Int = total % num_each == 0 ? floor(Int,total/num_each) : floor(Int,total/num_each)+1
@@ -51,12 +54,14 @@ function optimizeW(w, z, y,rho,regWeight,triplets)
     n = length(triplets)
     m = length(z)
     println("Triplet number:", n)
-    A, b, c = DiagDml.create_coefficients_with_triplets(triplets, Float32(punishment_mu),"huber2",Float32(tau))
+    A, b, c = DiagDml.create_coefficients_with_triplets(triplets, Float32(punishment_mu),"not_huber",Float32(tau))
     # DiagDml是按照等式约束进行的封装，求解器只要求>=约束，因此将剩余变量删除
+    # DiagDML encapsulate DML as EQUAL constraints. However, this solver only require LARGER_THAN_OR_EQUAL constraints. Thus, the slack variables should be removed.
     A = A[:,1:m+n]
     c = c[1:m+n]
     
     # 将ADMM惩罚变换为线性规划的约束
+    # Transform the punishment term in the first line of the ADMM equation into a linear programming form.
     # |w_i - zy_i| <= tau2/rho ==> w_i >= -tau2/rho + zy, - w_i >= -tau2/rho - zy 
     zy = z-y
     b21 = -tau2/rho .+ zy
@@ -67,18 +72,22 @@ function optimizeW(w, z, y,rho,regWeight,triplets)
     A21 = zeros(m,cols_A)
     A22 = zeros(m,cols_A)
     # 设置新的约束系数
+    # Set the new constraint coefficients.
     for i in 1:m
         A21[i,i] = 1
         A22[i,i] = -1
     end
     A2 = vcat(A21,A22)
     # 新加约束为防止无解，新加松驰变量系数
+    # add new slack variables for the new variables
     A3 = ones(2*m,2*m)
     A2 = hcat(A2,A3)
     # 原A矩阵向右扩0，以适应新加松驰变量
+    # Expand matrix A to adapt to new slack variables
     A12 = zeros(rows_A, 2*m)
     A = hcat(A, A12)
     # 原约束系数矩阵和新的约束系数合并
+    # merge the original constraint matrix and the new constraint matrix
     A = vcat(A,A2)
     c2 = punishment_mu*ones(2*m)
     c = cat(c,c2; dims=1)
@@ -99,6 +108,7 @@ end
 
 
 #计算L1正则项的数值
+# calculate the value of the L1 term
 function sign_for_l1(z)
     param_c = 1.0E-10 # 1范数拟合函数参数
     y = zeros(length(z))
@@ -109,10 +119,11 @@ function sign_for_l1(z)
     ind2=z .<= param_c
     y[ind2] .= -z[ind2]
     return sum(y)
-  end
+end
 
-  # 计算L1正则项的梯度
-  function sign_for_l1_gradient(z)
+# 计算L1正则项的梯度
+# calculate the gradient of the L1 term
+function sign_for_l1_gradient(z)
     param_c = 1.0E-10 # 1范数拟合函数参数
     gra = zeros(length(z))
     indices = abs.(z) .< param_c
@@ -120,29 +131,33 @@ function sign_for_l1(z)
     gra[z .>= param_c] .= 1
     gra[z .<= param_c] .= -1
     return gra
-  end
+end
 
-  # 计算DML正则项，包括L1、L2
-  function compute_reg_value(z,alpha)
+# 计算DML正则项，包括L1、L2
+# calculate the total value of the regularization terms including L1 and L2. (g(Z) in ADMM. )
+function compute_reg_value(z,alpha)
     l1,l2=alpha,(1-alpha)
     obj_p = l2*sum(z .^ 2) + l1*sign_for_l1(z)
     return obj_p
-  end
+end
 
-    # 计算DML正则项的梯度，包括L1、L2
-    function compute_reg_grad(z,alpha)
-        l1,l2=alpha,(1-alpha)
-        grad_p = l2*2.0 * z + l1*sign_for_l1_gradient(z)
-        return grad_p
-      end
+# 计算DML正则项的梯度，包括L1、L2
+# calculate the gradients of the regularization terms including L1 and L2.
+function compute_reg_grad(z,alpha)
+    l1,l2=alpha,(1-alpha)
+    grad_p = l2*2.0 * z + l1*sign_for_l1_gradient(z)
+    return grad_p
+end
 
 #计算ADMM问题的不一致性L2惩罚
+# calculate the L2-type punishment value in the second line of the ADMM equation.
 function census_punish_l2(w,z,y)
     v = norm(w-z+y)^2
     return v
 end
 
 #计算ADMM问题的不一致性L2惩罚的梯度
+# calculate the gradient of the L2-type punishment in the second line of the ADMM equation.
 function census_punish_l2_grad(w,z,y)
     wy = w+y
     pg = 2*(z-wy) 
@@ -206,6 +221,7 @@ function admmUpdate(trs,w_map,z,y_map,rho,regWeight,alpha)
     # println("y_bar values:",y_bar)
     n = length(ws)
     # 更新z
+    # update z
     z = optimizeZ(z,w_bar,y_bar,rho,n,regWeight,alpha)
     for (k,y) in y_map
         y_map[k] = y + w_map[k] -z
